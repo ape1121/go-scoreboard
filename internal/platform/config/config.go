@@ -19,7 +19,6 @@ const (
 	envShutdownTimeout           = "SHUTDOWN_TIMEOUT"
 )
 
-// Config contains runtime settings for the API process.
 type Config struct {
 	HTTPPort              int
 	DatabaseURL           string
@@ -27,7 +26,6 @@ type Config struct {
 	ShutdownTimeout       time.Duration
 }
 
-// Load reads runtime configuration from the environment with sane local defaults.
 func Load() (Config, error) {
 	cfg := Config{
 		HTTPPort:              defaultHTTPPort,
@@ -67,7 +65,6 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
-// HTTPAddr returns the listen address used by the API server.
 func (c Config) HTTPAddr() string {
 	return fmt.Sprintf(":%d", c.HTTPPort)
 }

@@ -6,13 +6,11 @@ import (
 	"time"
 )
 
-// Scheduler is the background job coordinator for periodic board resets.
 type Scheduler struct {
 	logger       *log.Logger
 	pollInterval time.Duration
 }
 
-// New creates a scheduler with the configured polling cadence.
 func New(logger *log.Logger, pollInterval time.Duration) *Scheduler {
 	return &Scheduler{
 		logger:       logger,
@@ -20,7 +18,6 @@ func New(logger *log.Logger, pollInterval time.Duration) *Scheduler {
 	}
 }
 
-// Start runs the scheduler loop until the context is cancelled.
 func (s *Scheduler) Start(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(s.pollInterval)

@@ -5,22 +5,18 @@ import (
 	stdhttp "net/http"
 )
 
-// Pinger captures the minimum database behavior needed for readiness checks.
 type Pinger interface {
 	Ping(context.Context) error
 }
 
-// HealthService exposes dependencies needed by readiness checks.
 type HealthService struct {
 	pinger Pinger
 }
 
-// NewHealthService wires the dependencies used by the health endpoint.
 func NewHealthService(pinger Pinger) HealthService {
 	return HealthService{pinger: pinger}
 }
 
-// Ready reports whether critical dependencies are reachable.
 func (s HealthService) Ready(ctx context.Context) error {
 	return s.pinger.Ping(ctx)
 }
