@@ -9,10 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/ape1121/go-scoreboard/internal/platform/app"
 	"github.com/ape1121/go-scoreboard/internal/platform/config"
-	platformdb "github.com/ape1121/go-scoreboard/internal/platform/db"
-	platformhttp "github.com/ape1121/go-scoreboard/internal/platform/http"
-	"github.com/ape1121/go-scoreboard/internal/platform/scheduler"
 )
 
 func main() {
@@ -26,23 +24,17 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	pool, err := platformdb.NewPool(ctx, cfg.DatabaseURL)
+	application, cleanup, err := app.Build(ctx, cfg, logger)
 	if err != nil {
-		logger.Fatalf("connect postgres: %v", err)
+		logger.Fatalf("build application: %v", err)
 	}
-	defer pool.Close()
+	defer cleanup()
 
-	sched := scheduler.New(logger, cfg.SchedulerPollInterval)
-	sched.Start(ctx)
-
-	server := platformhttp.NewServer(cfg, logger, platformhttp.NewRouter(platformhttp.Dependencies{
-		Logger:        logger,
-		HealthService: platformhttp.NewHealthService(pool),
-	}))
+	application.Scheduler.Start(ctx)
 
 	go func() {
 		logger.Printf("http server listening on %s", cfg.HTTPAddr())
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := application.Server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatalf("serve http: %v", err)
 		}
 	}()
@@ -52,7 +44,7 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 
-	if err := server.Shutdown(shutdownCtx); err != nil {
+	if err := application.Server.Shutdown(shutdownCtx); err != nil {
 		logger.Printf("shutdown http server: %v", err)
 	}
 }
