@@ -37,7 +37,7 @@ func Build(ctx context.Context, cfg config.Config, logger *log.Logger) (*Applica
 	boardRepository := boardpostgres.NewRepository(pool)
 	scoreRepository := scorepostgres.NewRepository(pool)
 	boardService := board.NewService(boardRepository, systemClock, board.NewID)
-	scoreService := score.NewService(scoreRepository, systemClock)
+	scoreService := score.NewService(scoreRepository, boardRepository, systemClock)
 	healthService := platformhttp.NewHealthService(pool)
 	httpDeps := platformhttp.Dependencies{
 		Logger:        logger,
@@ -53,5 +53,6 @@ func Build(ctx context.Context, cfg config.Config, logger *log.Logger) (*Applica
 }
 
 var _ board.Repository = (*boardpostgres.Repository)(nil)
+var _ score.BoardResolver = (*boardpostgres.Repository)(nil)
 var _ score.Repository = (*scorepostgres.Repository)(nil)
 var _ platformhttp.Pinger = (*pgxpool.Pool)(nil)

@@ -142,7 +142,7 @@ func TestRouterMethodNotAllowedUsesStandardErrorShape(t *testing.T) {
 	require.JSONEq(t, `{"error":"method not allowed"}`, recorder.Body.String())
 }
 
-func TestSkeletonScoreRoutesReturnNotImplemented(t *testing.T) {
+func TestSkeletonSurroundingsRouteReturnsNotImplemented(t *testing.T) {
 	t.Parallel()
 
 	var logs bytes.Buffer
@@ -151,29 +151,12 @@ func TestSkeletonScoreRoutesReturnNotImplemented(t *testing.T) {
 		HealthService: NewHealthService(stubPinger{}),
 	})
 
-	testCases := []struct {
-		name   string
-		method string
-		path   string
-	}{
-		{name: "upsert score", method: http.MethodPost, path: "/boards/board_1/scores"},
-		{name: "top scores", method: http.MethodGet, path: "/boards/board_1/scores"},
-		{name: "surroundings", method: http.MethodGet, path: "/boards/board_1/scores/user_1/surroundings"},
-	}
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/boards/board_1/scores/user_1/surroundings", nil)
+	router.ServeHTTP(recorder, request)
 
-	for _, testCase := range testCases {
-		testCase := testCase
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			recorder := httptest.NewRecorder()
-			request := httptest.NewRequest(testCase.method, testCase.path, nil)
-			router.ServeHTTP(recorder, request)
-
-			require.Equal(t, http.StatusNotImplemented, recorder.Code)
-			require.JSONEq(t, `{"error":"endpoint not implemented"}`, recorder.Body.String())
-		})
-	}
+	require.Equal(t, http.StatusNotImplemented, recorder.Code)
+	require.JSONEq(t, `{"error":"endpoint not implemented"}`, recorder.Body.String())
 }
 
 func TestRequestIDHasExpectedFormat(t *testing.T) {
