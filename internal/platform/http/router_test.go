@@ -142,7 +142,7 @@ func TestRouterMethodNotAllowedUsesStandardErrorShape(t *testing.T) {
 	require.JSONEq(t, `{"error":"method not allowed"}`, recorder.Body.String())
 }
 
-func TestSkeletonBoardRoutesReturnNotImplemented(t *testing.T) {
+func TestSkeletonScoreRoutesReturnNotImplemented(t *testing.T) {
 	t.Parallel()
 
 	var logs bytes.Buffer
@@ -156,9 +156,6 @@ func TestSkeletonBoardRoutesReturnNotImplemented(t *testing.T) {
 		method string
 		path   string
 	}{
-		{name: "create board", method: http.MethodPost, path: "/boards"},
-		{name: "list boards", method: http.MethodGet, path: "/boards"},
-		{name: "get board", method: http.MethodGet, path: "/boards/board_1"},
 		{name: "upsert score", method: http.MethodPost, path: "/boards/board_1/scores"},
 		{name: "top scores", method: http.MethodGet, path: "/boards/board_1/scores"},
 		{name: "surroundings", method: http.MethodGet, path: "/boards/board_1/scores/user_1/surroundings"},
