@@ -38,7 +38,7 @@ func (h scoreHandler) upsert(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 func (h scoreHandler) top(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	limit, err := scoreLimit(r)
 	if err != nil {
-		writeError(w, stdhttp.StatusBadRequest, "invalid value for n")
+		writeError(w, stdhttp.StatusBadRequest, "Invalid value for n")
 		return
 	}
 
@@ -54,14 +54,15 @@ func (h scoreHandler) top(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 func (h scoreHandler) surroundings(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	limit, err := scoreLimit(r)
 	if err != nil {
-		writeError(w, stdhttp.StatusBadRequest, "invalid value for n")
+		writeError(w, stdhttp.StatusBadRequest, "Invalid value for n")
 		return
 	}
 
+	userID := chi.URLParam(r, "userId")
 	entries, err := h.service.Surroundings(
 		r.Context(),
 		chi.URLParam(r, "boardId"),
-		chi.URLParam(r, "userId"),
+		userID,
 		limit,
 	)
 	if err != nil {
@@ -69,7 +70,7 @@ func (h scoreHandler) surroundings(w stdhttp.ResponseWriter, r *stdhttp.Request)
 		return
 	}
 
-	writeJSON(w, stdhttp.StatusOK, toSurroundingsResponse(entries))
+	writeJSON(w, stdhttp.StatusOK, toSurroundingsResponse(entries, userID))
 }
 
 func (h scoreHandler) seed(w stdhttp.ResponseWriter, r *stdhttp.Request) {
@@ -109,9 +110,9 @@ func writeScoreError(w stdhttp.ResponseWriter, err error) {
 	case errors.As(err, &validationErr):
 		writeError(w, stdhttp.StatusBadRequest, validationErr.Error())
 	case errors.Is(err, score.ErrBoardNotFound):
-		writeError(w, stdhttp.StatusNotFound, "board not found")
+		writeError(w, stdhttp.StatusNotFound, "Board not found")
 	case errors.Is(err, score.ErrScoreNotFound):
-		writeError(w, stdhttp.StatusNotFound, "score not found for user")
+		writeError(w, stdhttp.StatusNotFound, "Board or user not found")
 	default:
 		writeError(w, stdhttp.StatusInternalServerError, "internal server error")
 	}

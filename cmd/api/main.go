@@ -11,6 +11,7 @@ import (
 
 	"github.com/ape1121/go-scoreboard/internal/platform/app"
 	"github.com/ape1121/go-scoreboard/internal/platform/config"
+	platformdb "github.com/ape1121/go-scoreboard/internal/platform/db"
 )
 
 func main() {
@@ -20,6 +21,11 @@ func main() {
 	if err != nil {
 		logger.Fatalf("load config: %v", err)
 	}
+
+	if err := platformdb.RunMigrations(cfg.DatabaseURL, "migrations"); err != nil {
+		logger.Fatalf("run migrations: %v", err)
+	}
+	logger.Print("migrations applied")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

@@ -8,7 +8,8 @@
       "Bash(xargs grep:*)",
       "Bash(go get:*)",
       "Bash(go vet:*)",
-      "Bash(gofmt -l c:/Users/Alp/Desktop/go-scoreboard/)"
+      "Bash(gofmt -l c:/Users/Alp/Desktop/go-scoreboard/)",
+      "Bash(grep -E \"\\\\.\\(md|txt\\)$\")"
     ]
   }
 }

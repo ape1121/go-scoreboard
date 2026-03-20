@@ -118,7 +118,7 @@ func TestGetBoardHandlerReturnsNotFound(t *testing.T) {
 	router.ServeHTTP(recorder, request)
 
 	require.Equal(t, http.StatusNotFound, recorder.Code)
-	require.JSONEq(t, `{"error":"board not found"}`, recorder.Body.String())
+	require.JSONEq(t, `{"error":"Board not found"}`, recorder.Body.String())
 }
 
 func TestListBoardsHandlerAcceptsPaginationParams(t *testing.T) {

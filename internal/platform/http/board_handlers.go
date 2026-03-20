@@ -88,7 +88,7 @@ func writeBoardError(w stdhttp.ResponseWriter, err error) {
 	case errors.As(err, &validationErr):
 		writeError(w, stdhttp.StatusBadRequest, validationErr.Error())
 	case errors.Is(err, board.ErrNotFound):
-		writeError(w, stdhttp.StatusNotFound, "board not found")
+		writeError(w, stdhttp.StatusNotFound, "Board not found")
 	case errors.Is(err, io.EOF):
 		writeError(w, stdhttp.StatusBadRequest, "invalid request body")
 	default:

@@ -41,7 +41,7 @@ func TestSetScoreHandlerReturnsBoardNotFound(t *testing.T) {
 	router.ServeHTTP(recorder, request)
 
 	require.Equal(t, http.StatusNotFound, recorder.Code)
-	require.JSONEq(t, `{"error":"board not found"}`, recorder.Body.String())
+	require.JSONEq(t, `{"error":"Board not found"}`, recorder.Body.String())
 }
 
 func TestTopScoresHandlerReturnsRankedEntries(t *testing.T) {
@@ -129,11 +129,11 @@ func TestSurroundingsHandlerReturnsRankedEntries(t *testing.T) {
 	router.ServeHTTP(recorder, request)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
-	require.JSONEq(t, `[
-		{"rank":1,"userId":"alice","score":2000},
-		{"rank":2,"userId":"bob","score":1500},
-		{"rank":3,"userId":"carol","score":1000}
-	]`, recorder.Body.String())
+	require.JSONEq(t, `{
+		"user":{"userId":"bob","score":1500},
+		"above":[{"userId":"alice","score":2000}],
+		"below":[{"userId":"carol","score":1000}]
+	}`, recorder.Body.String())
 }
 
 func TestSurroundingsHandlerReturnsNotFoundForMissingUser(t *testing.T) {
@@ -151,7 +151,7 @@ func TestSurroundingsHandlerReturnsNotFoundForMissingUser(t *testing.T) {
 	router.ServeHTTP(recorder, request)
 
 	require.Equal(t, http.StatusNotFound, recorder.Code)
-	require.JSONEq(t, `{"error":"score not found for user"}`, recorder.Body.String())
+	require.JSONEq(t, `{"error":"Board or user not found"}`, recorder.Body.String())
 }
 
 func TestSeedHandlerCreatesScores(t *testing.T) {

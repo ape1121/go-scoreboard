@@ -55,20 +55,30 @@ type seedResponse struct {
 	Created int `json:"created"`
 }
 
-type rankedScoreItemResponse struct {
-	Rank   int    `json:"rank"`
-	UserID string `json:"userId"`
-	Score  int64  `json:"score"`
+type surroundingsResponse struct {
+	User  scoreItemResponse   `json:"user"`
+	Above []scoreItemResponse `json:"above"`
+	Below []scoreItemResponse `json:"below"`
 }
 
-func toSurroundingsResponse(entries []score.RankedEntry) []rankedScoreItemResponse {
-	response := make([]rankedScoreItemResponse, 0, len(entries))
+func toSurroundingsResponse(entries []score.RankedEntry, targetUserID string) surroundingsResponse {
+	var response surroundingsResponse
+	response.Above = make([]scoreItemResponse, 0)
+	response.Below = make([]scoreItemResponse, 0)
+
+	phase := "above"
 	for _, entry := range entries {
-		response = append(response, rankedScoreItemResponse{
-			Rank:   entry.Rank,
-			UserID: entry.UserID,
-			Score:  entry.Score,
-		})
+		item := scoreItemResponse{UserID: entry.UserID, Score: entry.Score}
+		if entry.UserID == targetUserID {
+			response.User = item
+			phase = "below"
+			continue
+		}
+		if phase == "above" {
+			response.Above = append(response.Above, item)
+		} else {
+			response.Below = append(response.Below, item)
+		}
 	}
 
 	return response
