@@ -110,12 +110,90 @@ func newScoreTestRouter(repository *scoreRepositoryStub, boards *scoreBoardResol
 	})
 }
 
+func TestSurroundingsHandlerReturnsRankedEntries(t *testing.T) {
+	t.Parallel()
+
+	router := newScoreTestRouter(&scoreRepositoryStub{
+		surroundingsEntries: []score.RankedEntry{
+			{ScoreEntry: score.ScoreEntry{BoardID: "board_test", PeriodID: 11, UserID: "alice", Score: 2000}, Rank: 1},
+			{ScoreEntry: score.ScoreEntry{BoardID: "board_test", PeriodID: 11, UserID: "bob", Score: 1500}, Rank: 2},
+			{ScoreEntry: score.ScoreEntry{BoardID: "board_test", PeriodID: 11, UserID: "carol", Score: 1000}, Rank: 3},
+		},
+	}, &scoreBoardResolverStub{
+		boardEntity: board.Board{ID: "board_test"},
+		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+	}, time.Now().UTC())
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/boards/board_test/scores/bob/surroundings?n=1", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.JSONEq(t, `[
+		{"rank":1,"userId":"alice","score":2000},
+		{"rank":2,"userId":"bob","score":1500},
+		{"rank":3,"userId":"carol","score":1000}
+	]`, recorder.Body.String())
+}
+
+func TestSurroundingsHandlerReturnsNotFoundForMissingUser(t *testing.T) {
+	t.Parallel()
+
+	router := newScoreTestRouter(&scoreRepositoryStub{
+		surroundingsErr: score.ErrScoreNotFound,
+	}, &scoreBoardResolverStub{
+		boardEntity: board.Board{ID: "board_test"},
+		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+	}, time.Now().UTC())
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/boards/board_test/scores/missing_user/surroundings", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusNotFound, recorder.Code)
+	require.JSONEq(t, `{"error":"score not found for user"}`, recorder.Body.String())
+}
+
+func TestSeedHandlerCreatesScores(t *testing.T) {
+	t.Parallel()
+
+	router := newScoreTestRouter(&scoreRepositoryStub{}, &scoreBoardResolverStub{
+		boardEntity: board.Board{ID: "board_test"},
+		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+	}, time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC))
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/boards/board_test/scores/seed", bytes.NewBufferString(`{"count":5,"maxScore":1000}`))
+
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusCreated, recorder.Code)
+	require.JSONEq(t, `{"created":5}`, recorder.Body.String())
+}
+
+func TestSeedHandlerUsesDefaultsForEmptyBody(t *testing.T) {
+	t.Parallel()
+
+	router := newScoreTestRouter(&scoreRepositoryStub{}, &scoreBoardResolverStub{
+		boardEntity: board.Board{ID: "board_test"},
+		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+	}, time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC))
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/boards/board_test/scores/seed", bytes.NewBufferString(`{}`))
+
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusCreated, recorder.Code)
+	require.JSONEq(t, `{"created":20}`, recorder.Body.String())
+}
+
 type scoreRepositoryStub struct {
-	upsertInput score.UpsertInput
-	upserted    score.ScoreEntry
-	topEntries  []score.ScoreEntry
-	upsertErr   error
-	topErr      error
+	upsertInput         score.UpsertInput
+	upserted            score.ScoreEntry
+	topEntries          []score.ScoreEntry
+	surroundingsEntries []score.RankedEntry
+	upsertErr           error
+	topErr              error
+	surroundingsErr     error
 }
 
 func (s *scoreRepositoryStub) Upsert(_ context.Context, input score.UpsertInput) (score.ScoreEntry, error) {
@@ -147,7 +225,10 @@ func (s *scoreRepositoryStub) Get(context.Context, string, int64, string) (score
 }
 
 func (s *scoreRepositoryStub) Surroundings(_ context.Context, _ string, _ int64, _ string, _ int) ([]score.RankedEntry, error) {
-	return nil, nil
+	if s.surroundingsErr != nil {
+		return nil, s.surroundingsErr
+	}
+	return s.surroundingsEntries, nil
 }
 
 type scoreBoardResolverStub struct {

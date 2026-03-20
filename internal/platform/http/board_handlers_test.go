@@ -121,6 +121,44 @@ func TestGetBoardHandlerReturnsNotFound(t *testing.T) {
 	require.JSONEq(t, `{"error":"board not found"}`, recorder.Body.String())
 }
 
+func TestListBoardsHandlerAcceptsPaginationParams(t *testing.T) {
+	t.Parallel()
+
+	router := newBoardTestRouter(&boardRepositoryStub{
+		listBoards: []board.Board{
+			{ID: "board_3", Name: "Third"},
+		},
+	}, time.Now().UTC())
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/boards?limit=1&offset=2", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.JSONEq(t, `[{"boardId":"board_3","name":"Third"}]`, recorder.Body.String())
+}
+
+func TestCreateAndListBoardsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	repo := &boardRepositoryStub{}
+	router := newBoardTestRouter(repo, time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC))
+
+	createRecorder := httptest.NewRecorder()
+	createReq := httptest.NewRequest(http.MethodPost, "/boards", bytes.NewBufferString(`{
+		"name":"Round Trip Board",
+		"description":"Testing create then list"
+	}`))
+	router.ServeHTTP(createRecorder, createReq)
+	require.Equal(t, http.StatusCreated, createRecorder.Code)
+
+	listRecorder := httptest.NewRecorder()
+	listReq := httptest.NewRequest(http.MethodGet, "/boards", nil)
+	router.ServeHTTP(listRecorder, listReq)
+	require.Equal(t, http.StatusOK, listRecorder.Code)
+	require.Contains(t, listRecorder.Body.String(), "Round Trip Board")
+}
+
 func newBoardTestRouter(repository *boardRepositoryStub, now time.Time) http.Handler {
 	service := board.NewService(repository, fixedClock{now: now}, func() string { return "board_test" })
 

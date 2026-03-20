@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(find /c/Users/Alp/Desktop/go-scoreboard -type f \\\\\\(-name .github -o -name .github/* \\\\\\))",
+      "Bash(grep -r \"testcontainers\\\\|docker\\\\|integration\" --include=*.go /c/Users/Alp/Desktop/go-scoreboard)",
+      "Bash(wc -l /c/Users/Alp/Desktop/go-scoreboard/internal/*_test.go /c/Users/Alp/Desktop/go-scoreboard/internal/*/*_test.go)",
+      "Bash(xargs grep:*)",
+      "Bash(go get:*)",
+      "Bash(go vet:*)",
+      "Bash(gofmt -l c:/Users/Alp/Desktop/go-scoreboard/)"
     ]
   }
 }

@@ -86,7 +86,7 @@ func (h scoreHandler) seed(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 
 	boardID := chi.URLParam(r, "boardId")
 	created := 0
-	for i := range request.Count {
+	for i := 0; i < request.Count; i++ {
 		userID := fmt.Sprintf("player_%d", i+1)
 		_, err := h.service.Set(r.Context(), score.SetInput{
 			BoardID: boardID,
