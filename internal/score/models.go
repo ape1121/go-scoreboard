@@ -9,3 +9,8 @@ type ScoreEntry struct {
 	Score      int64
 	AchievedAt time.Time
 }
+
+type RankedEntry struct {
+	ScoreEntry
+	Rank int
+}

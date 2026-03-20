@@ -12,8 +12,6 @@ import (
 	"github.com/ape1121/go-scoreboard/internal/score"
 )
 
-var errNotImplemented = errors.New("score repository method not implemented")
-
 type queryer interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
@@ -201,7 +199,58 @@ func (r *Repository) Get(ctx context.Context, boardID string, periodID int64, us
 	return entry, nil
 }
 
-func (r *Repository) Surroundings(context.Context, string, int64, string, int) ([]score.ScoreEntry, []score.ScoreEntry, score.ScoreEntry, error) {
-	_ = r.db
-	return nil, nil, score.ScoreEntry{}, errNotImplemented
+func (r *Repository) Surroundings(ctx context.Context, boardID string, periodID int64, userID string, n int) ([]score.RankedEntry, error) {
+	rows, err := r.db.Query(
+		ctx,
+		`
+			WITH ranked AS (
+				SELECT
+					board_id,
+					board_period_id,
+					user_id,
+					score,
+					achieved_at,
+					ROW_NUMBER() OVER (ORDER BY score DESC, achieved_at ASC, user_id ASC) AS rank
+				FROM board_scores
+				WHERE board_id = $1 AND board_period_id = $2
+			),
+			target AS (
+				SELECT rank FROM ranked WHERE user_id = $3
+			)
+			SELECT r.board_id, r.board_period_id, r.user_id, r.score, r.achieved_at, r.rank
+			FROM ranked r, target t
+			WHERE r.rank BETWEEN t.rank - $4 AND t.rank + $4
+			ORDER BY r.rank ASC
+		`,
+		boardID,
+		periodID,
+		userID,
+		n,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query surroundings: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []score.RankedEntry
+	for rows.Next() {
+		var entry score.RankedEntry
+		if err := rows.Scan(
+			&entry.BoardID, &entry.PeriodID, &entry.UserID,
+			&entry.Score, &entry.AchievedAt, &entry.Rank,
+		); err != nil {
+			return nil, fmt.Errorf("scan surroundings entry: %w", err)
+		}
+		entries = append(entries, entry)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate surroundings: %w", err)
+	}
+
+	if len(entries) == 0 {
+		return nil, score.ErrScoreNotFound
+	}
+
+	return entries, nil
 }

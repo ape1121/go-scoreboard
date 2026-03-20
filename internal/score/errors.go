@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrBoardNotFound        = errors.New("board not found")
 	ErrActivePeriodNotFound = errors.New("active period not found")
+	ErrScoreNotFound        = errors.New("score not found")
 )
 
 type ValidationError struct {

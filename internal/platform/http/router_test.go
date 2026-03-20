@@ -142,23 +142,6 @@ func TestRouterMethodNotAllowedUsesStandardErrorShape(t *testing.T) {
 	require.JSONEq(t, `{"error":"method not allowed"}`, recorder.Body.String())
 }
 
-func TestSkeletonSurroundingsRouteReturnsNotImplemented(t *testing.T) {
-	t.Parallel()
-
-	var logs bytes.Buffer
-	router := NewRouter(Dependencies{
-		Logger:        log.New(&logs, "", 0),
-		HealthService: NewHealthService(stubPinger{}),
-	})
-
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/boards/board_1/scores/user_1/surroundings", nil)
-	router.ServeHTTP(recorder, request)
-
-	require.Equal(t, http.StatusNotImplemented, recorder.Code)
-	require.JSONEq(t, `{"error":"endpoint not implemented"}`, recorder.Body.String())
-}
-
 func TestRequestIDHasExpectedFormat(t *testing.T) {
 	t.Parallel()
 

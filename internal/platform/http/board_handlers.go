@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	stdhttp "net/http"
+	"strconv"
 
 	"github.com/ape1121/go-scoreboard/internal/board"
 	"github.com/go-chi/chi/v5"
@@ -34,13 +35,41 @@ func (h boardHandler) create(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 }
 
 func (h boardHandler) list(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-	boards, err := h.service.List(r.Context())
+	limit, offset := boardListPagination(r)
+
+	boards, err := h.service.List(r.Context(), limit, offset)
 	if err != nil {
 		writeError(w, stdhttp.StatusInternalServerError, "internal server error")
 		return
 	}
 
 	writeJSON(w, stdhttp.StatusOK, toBoardListResponse(boards))
+}
+
+func boardListPagination(r *stdhttp.Request) (int, int) {
+	const (
+		defaultLimit = 50
+		maxLimit     = 100
+	)
+
+	limit := defaultLimit
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			limit = v
+		}
+	}
+	if limit > maxLimit {
+		limit = maxLimit
+	}
+
+	offset := 0
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v >= 0 {
+			offset = v
+		}
+	}
+
+	return limit, offset
 }
 
 func (h boardHandler) get(w stdhttp.ResponseWriter, r *stdhttp.Request) {

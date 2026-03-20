@@ -10,7 +10,7 @@ import (
 
 type Repository interface {
 	Create(context.Context, Board, BoardPeriod) error
-	List(context.Context) ([]Board, error)
+	List(ctx context.Context, limit, offset int) ([]Board, error)
 	GetByID(context.Context, string) (Board, error)
 	GetActivePeriod(context.Context, string) (BoardPeriod, error)
 }
@@ -60,8 +60,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (Board, error) 
 	return entity, nil
 }
 
-func (s *Service) List(ctx context.Context) ([]Board, error) {
-	return s.repository.List(ctx)
+func (s *Service) List(ctx context.Context, limit, offset int) ([]Board, error) {
+	return s.repository.List(ctx, limit, offset)
 }
 
 func (s *Service) Get(ctx context.Context, boardID string) (Details, error) {

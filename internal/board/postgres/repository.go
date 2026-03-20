@@ -77,14 +77,17 @@ func (r *Repository) Create(ctx context.Context, entity board.Board, period boar
 	return nil
 }
 
-func (r *Repository) List(ctx context.Context) ([]board.Board, error) {
+func (r *Repository) List(ctx context.Context, limit, offset int) ([]board.Board, error) {
 	rows, err := r.pool.Query(
 		ctx,
 		`
 			SELECT board_id, name
 			FROM boards
 			ORDER BY created_at ASC, board_id ASC
+			LIMIT $1 OFFSET $2
 		`,
+		limit,
+		offset,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query boards: %w", err)

@@ -45,3 +45,31 @@ func toTopScoresResponse(entries []score.ScoreEntry) []scoreItemResponse {
 
 	return response
 }
+
+type seedRequest struct {
+	Count    int   `json:"count"`
+	MaxScore int64 `json:"maxScore"`
+}
+
+type seedResponse struct {
+	Created int `json:"created"`
+}
+
+type rankedScoreItemResponse struct {
+	Rank   int    `json:"rank"`
+	UserID string `json:"userId"`
+	Score  int64  `json:"score"`
+}
+
+func toSurroundingsResponse(entries []score.RankedEntry) []rankedScoreItemResponse {
+	response := make([]rankedScoreItemResponse, 0, len(entries))
+	for _, entry := range entries {
+		response = append(response, rankedScoreItemResponse{
+			Rank:   entry.Rank,
+			UserID: entry.UserID,
+			Score:  entry.Score,
+		})
+	}
+
+	return response
+}

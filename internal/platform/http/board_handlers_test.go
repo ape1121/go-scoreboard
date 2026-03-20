@@ -159,7 +159,7 @@ func (s *boardRepositoryStub) Create(_ context.Context, boardEntity board.Board,
 	return nil
 }
 
-func (s *boardRepositoryStub) List(_ context.Context) ([]board.Board, error) {
+func (s *boardRepositoryStub) List(_ context.Context, _, _ int) ([]board.Board, error) {
 	if s.listErr != nil {
 		return nil, s.listErr
 	}

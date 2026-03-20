@@ -143,8 +143,8 @@ func (s *repositoryStub) Get(context.Context, string, int64, string) (ScoreEntry
 	return ScoreEntry{}, nil
 }
 
-func (s *repositoryStub) Surroundings(context.Context, string, int64, string, int) ([]ScoreEntry, []ScoreEntry, ScoreEntry, error) {
-	return nil, nil, ScoreEntry{}, nil
+func (s *repositoryStub) Surroundings(_ context.Context, _ string, _ int64, _ string, _ int) ([]RankedEntry, error) {
+	return nil, nil
 }
 
 type boardResolverStub struct {

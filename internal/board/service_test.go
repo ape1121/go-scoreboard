@@ -113,7 +113,7 @@ func TestServiceListDelegatesToRepository(t *testing.T) {
 	repository := &stubRepository{listBoards: expected}
 	service := NewService(repository, fixedClock{now: time.Now().UTC()}, func() string { return "board_test" })
 
-	boards, err := service.List(context.Background())
+	boards, err := service.List(context.Background(), 50, 0)
 
 	require.NoError(t, err)
 	require.Equal(t, expected, boards)
@@ -153,7 +153,7 @@ func (s *stubRepository) Create(_ context.Context, boardEntity Board, period Boa
 	return nil
 }
 
-func (s *stubRepository) List(_ context.Context) ([]Board, error) {
+func (s *stubRepository) List(_ context.Context, _, _ int) ([]Board, error) {
 	if s.listErr != nil {
 		return nil, s.listErr
 	}

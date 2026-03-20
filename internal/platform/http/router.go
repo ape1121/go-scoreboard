@@ -45,6 +45,7 @@ func NewRouter(deps Dependencies) stdhttp.Handler {
 			r.Route("/scores", func(r chi.Router) {
 				r.Post("/", scoreHandler.upsert)
 				r.Get("/", scoreHandler.top)
+				r.Post("/seed", scoreHandler.seed)
 				r.Get("/{userId}/surroundings", scoreHandler.surroundings)
 			})
 		})
