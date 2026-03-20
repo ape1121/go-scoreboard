@@ -15,21 +15,89 @@ import (
 var errNotImplemented = errors.New("score repository method not implemented")
 
 type queryer interface {
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
+type tx interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+	Commit(context.Context) error
+	Rollback(context.Context) error
+}
+
+type store interface {
+	BeginTx(context.Context, pgx.TxOptions) (tx, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+type poolStore struct {
+	pool *pgxpool.Pool
+}
+
+func (s poolStore) BeginTx(ctx context.Context, options pgx.TxOptions) (tx, error) {
+	return s.pool.BeginTx(ctx, options)
+}
+
+func (s poolStore) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	return s.pool.Query(ctx, sql, args...)
+}
+
+func (s poolStore) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return s.pool.QueryRow(ctx, sql, args...)
+}
+
 type Repository struct {
-	db queryer
+	db store
 }
 
 func NewRepository(pool *pgxpool.Pool) *Repository {
-	return &Repository{db: pool}
+	return &Repository{db: poolStore{pool: pool}}
 }
 
-func (r *Repository) Upsert(ctx context.Context, entry score.ScoreEntry) error {
-	_, err := r.db.Exec(
+func (r *Repository) Upsert(ctx context.Context, input score.UpsertInput) (score.ScoreEntry, error) {
+	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return score.ScoreEntry{}, fmt.Errorf("begin score upsert transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var boardID string
+	if err := tx.QueryRow(
+		ctx,
+		`
+			SELECT board_id
+			FROM boards
+			WHERE board_id = $1
+			FOR UPDATE
+		`,
+		input.BoardID,
+	).Scan(&boardID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return score.ScoreEntry{}, score.ErrBoardNotFound
+		}
+		return score.ScoreEntry{}, fmt.Errorf("lock board for score upsert: %w", err)
+	}
+
+	var periodID int64
+	if err := tx.QueryRow(
+		ctx,
+		`
+			SELECT period_id
+			FROM board_periods
+			WHERE board_id = $1 AND ended_at IS NULL
+			LIMIT 1
+		`,
+		input.BoardID,
+	).Scan(&periodID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return score.ScoreEntry{}, score.ErrActivePeriodNotFound
+		}
+		return score.ScoreEntry{}, fmt.Errorf("load active period for score upsert: %w", err)
+	}
+
+	if _, err := tx.Exec(
 		ctx,
 		`
 			INSERT INTO board_scores (
@@ -45,17 +113,26 @@ func (r *Repository) Upsert(ctx context.Context, entry score.ScoreEntry) error {
 				score = EXCLUDED.score,
 				achieved_at = EXCLUDED.achieved_at
 		`,
-		entry.BoardID,
-		entry.PeriodID,
-		entry.UserID,
-		entry.Score,
-		entry.AchievedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("upsert score: %w", err)
+		input.BoardID,
+		periodID,
+		input.UserID,
+		input.Score,
+		input.AchievedAt,
+	); err != nil {
+		return score.ScoreEntry{}, fmt.Errorf("upsert score: %w", err)
 	}
 
-	return nil
+	if err := tx.Commit(ctx); err != nil {
+		return score.ScoreEntry{}, fmt.Errorf("commit score upsert transaction: %w", err)
+	}
+
+	return score.ScoreEntry{
+		BoardID:    input.BoardID,
+		PeriodID:   periodID,
+		UserID:     input.UserID,
+		Score:      input.Score,
+		AchievedAt: input.AchievedAt,
+	}, nil
 }
 
 func (r *Repository) Top(ctx context.Context, boardID string, periodID int64, limit int) ([]score.ScoreEntry, error) {

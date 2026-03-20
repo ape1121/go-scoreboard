@@ -10,7 +10,7 @@ import (
 )
 
 type Repository interface {
-	Upsert(context.Context, ScoreEntry) error
+	Upsert(context.Context, UpsertInput) (ScoreEntry, error)
 	Top(context.Context, string, int64, int) ([]ScoreEntry, error)
 	Get(context.Context, string, int64, string) (ScoreEntry, error)
 	Surroundings(context.Context, string, int64, string, int) ([]ScoreEntry, []ScoreEntry, ScoreEntry, error)
@@ -46,24 +46,13 @@ func (s *Service) Set(ctx context.Context, input SetInput) (ScoreEntry, error) {
 		return ScoreEntry{}, err
 	}
 
-	if _, err := s.boards.GetByID(ctx, boardID); err != nil {
-		return ScoreEntry{}, mapBoardError(err)
-	}
-
-	period, err := s.boards.GetActivePeriod(ctx, boardID)
-	if err != nil {
-		return ScoreEntry{}, mapBoardError(err)
-	}
-
-	entry := ScoreEntry{
+	entry, err := s.repository.Upsert(ctx, UpsertInput{
 		BoardID:    boardID,
-		PeriodID:   period.ID,
 		UserID:     userID,
 		Score:      input.Score,
 		AchievedAt: s.clock.Now(),
-	}
-
-	if err := s.repository.Upsert(ctx, entry); err != nil {
+	})
+	if err != nil {
 		return ScoreEntry{}, err
 	}
 

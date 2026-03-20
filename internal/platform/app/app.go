@@ -48,11 +48,12 @@ func Build(ctx context.Context, cfg config.Config, logger *log.Logger) (*Applica
 
 	return &Application{
 		Server:    platformhttp.NewServer(cfg, logger, platformhttp.NewRouter(httpDeps)),
-		Scheduler: scheduler.New(logger, cfg.SchedulerPollInterval, systemClock, scheduler.NewNoopRunner(pool)),
+		Scheduler: scheduler.New(logger, cfg.SchedulerPollInterval, systemClock, scheduler.NewRunner(boardRepository)),
 	}, cleanup, nil
 }
 
 var _ board.Repository = (*boardpostgres.Repository)(nil)
+var _ scheduler.Repository = (*boardpostgres.Repository)(nil)
 var _ score.BoardResolver = (*boardpostgres.Repository)(nil)
 var _ score.Repository = (*scorepostgres.Repository)(nil)
 var _ platformhttp.Pinger = (*pgxpool.Pool)(nil)

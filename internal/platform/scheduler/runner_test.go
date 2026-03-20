@@ -1,0 +1,131 @@
+package scheduler
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"log"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestDBRunnerResetsDueBoards(t *testing.T) {
+	t.Parallel()
+
+	repository := &repositoryStub{dueBoardIDs: []string{"board_1", "board_2"}}
+	runner := NewRunner(repository)
+	now := time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC)
+
+	err := runner.Run(context.Background(), now)
+
+	require.NoError(t, err)
+	require.Equal(t, []resetCall{
+		{boardID: "board_1", now: now},
+		{boardID: "board_2", now: now},
+	}, repository.resetCalls)
+}
+
+func TestDBRunnerSkipsBoardsWithoutSchedulesWhenNoneAreDue(t *testing.T) {
+	t.Parallel()
+
+	repository := &repositoryStub{}
+	runner := NewRunner(repository)
+
+	err := runner.Run(context.Background(), time.Now().UTC())
+
+	require.NoError(t, err)
+	require.Empty(t, repository.resetCalls)
+}
+
+func TestSchedulerCatchUpUsesCurrentClock(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 19, 13, 0, 0, 0, time.UTC)
+	runner := &runnerStub{}
+	scheduler := New(log.New(&bytes.Buffer{}, "", 0), time.Second, fixedClock{now: now}, runner)
+
+	err := scheduler.CatchUp(context.Background())
+
+	require.NoError(t, err)
+	require.Equal(t, []time.Time{now}, runner.calls)
+}
+
+func TestSchedulerStartTriggersRunner(t *testing.T) {
+	t.Parallel()
+
+	runner := &runnerStub{}
+	scheduler := New(log.New(&bytes.Buffer{}, "", 0), 10*time.Millisecond, fixedClock{now: time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC)}, runner)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	scheduler.Start(ctx)
+	time.Sleep(30 * time.Millisecond)
+	cancel()
+	time.Sleep(10 * time.Millisecond)
+
+	require.NotEmpty(t, runner.calls)
+}
+
+type repositoryStub struct {
+	dueBoardIDs []string
+	dueErr      error
+	resetErr    error
+	resetCalls  []resetCall
+}
+
+func (s *repositoryStub) DueBoardIDs(context.Context, time.Time) ([]string, error) {
+	if s.dueErr != nil {
+		return nil, s.dueErr
+	}
+
+	return s.dueBoardIDs, nil
+}
+
+func (s *repositoryStub) ResetDueBoard(_ context.Context, boardID string, now time.Time) (bool, error) {
+	s.resetCalls = append(s.resetCalls, resetCall{boardID: boardID, now: now})
+	if s.resetErr != nil {
+		return false, s.resetErr
+	}
+
+	return true, nil
+}
+
+type resetCall struct {
+	boardID string
+	now     time.Time
+}
+
+type runnerStub struct {
+	calls []time.Time
+	err   error
+}
+
+func (s *runnerStub) Run(_ context.Context, now time.Time) error {
+	s.calls = append(s.calls, now)
+	return s.err
+}
+
+type fixedClock struct {
+	now time.Time
+}
+
+func (f fixedClock) Now() time.Time {
+	return f.now
+}
+
+func TestDBRunnerReturnsResetErrors(t *testing.T) {
+	t.Parallel()
+
+	repository := &repositoryStub{
+		dueBoardIDs: []string{"board_1"},
+		resetErr:    errors.New("boom"),
+	}
+	runner := NewRunner(repository)
+
+	err := runner.Run(context.Background(), time.Now().UTC())
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "board_1")
+}

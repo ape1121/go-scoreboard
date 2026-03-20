@@ -17,11 +17,7 @@ func TestServiceSetUpsertsScoreInActivePeriod(t *testing.T) {
 
 	now := time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC)
 	repository := &repositoryStub{}
-	boards := &boardResolverStub{
-		boardEntity: board.Board{ID: "board_test"},
-		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
-	}
-	service := NewService(repository, boards, fixedClock{now: now})
+	service := NewService(repository, &boardResolverStub{}, fixedClock{now: now})
 
 	entry, err := service.Set(context.Background(), SetInput{
 		BoardID: " board_test ",
@@ -37,7 +33,12 @@ func TestServiceSetUpsertsScoreInActivePeriod(t *testing.T) {
 		Score:      1500,
 		AchievedAt: now,
 	}, entry)
-	require.Equal(t, entry, repository.upserted)
+	require.Equal(t, UpsertInput{
+		BoardID:    "board_test",
+		UserID:     "user_1",
+		Score:      1500,
+		AchievedAt: now,
+	}, repository.upsertInput)
 }
 
 func TestServiceSetReturnsValidationError(t *testing.T) {
@@ -55,7 +56,7 @@ func TestServiceSetReturnsValidationError(t *testing.T) {
 func TestServiceSetReturnsBoardNotFound(t *testing.T) {
 	t.Parallel()
 
-	service := NewService(&repositoryStub{}, &boardResolverStub{getErr: board.ErrNotFound}, fixedClock{now: time.Now().UTC()})
+	service := NewService(&repositoryStub{upsertErr: ErrBoardNotFound}, &boardResolverStub{}, fixedClock{now: time.Now().UTC()})
 
 	_, err := service.Set(context.Background(), SetInput{BoardID: "board_test", UserID: "user_1", Score: 10})
 
@@ -105,20 +106,28 @@ func TestValidationErrorUnwraps(t *testing.T) {
 }
 
 type repositoryStub struct {
-	upserted   ScoreEntry
-	topEntries []ScoreEntry
-	upsertErr  error
-	topErr     error
-	topCall    topCall
+	upsertInput UpsertInput
+	upserted    ScoreEntry
+	topEntries  []ScoreEntry
+	upsertErr   error
+	topErr      error
+	topCall     topCall
 }
 
-func (s *repositoryStub) Upsert(_ context.Context, entry ScoreEntry) error {
+func (s *repositoryStub) Upsert(_ context.Context, input UpsertInput) (ScoreEntry, error) {
 	if s.upsertErr != nil {
-		return s.upsertErr
+		return ScoreEntry{}, s.upsertErr
 	}
 
-	s.upserted = entry
-	return nil
+	s.upsertInput = input
+	s.upserted = ScoreEntry{
+		BoardID:    input.BoardID,
+		PeriodID:   11,
+		UserID:     input.UserID,
+		Score:      input.Score,
+		AchievedAt: input.AchievedAt,
+	}
+	return s.upserted, nil
 }
 
 func (s *repositoryStub) Top(_ context.Context, boardID string, periodID int64, limit int) ([]ScoreEntry, error) {

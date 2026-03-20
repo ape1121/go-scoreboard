@@ -113,7 +113,6 @@ func (r *Repository) GetByID(ctx context.Context, boardID string) (board.Board, 
 		scheduleType            *string
 		scheduleIntervalSeconds *int64
 	)
-
 	err := r.pool.QueryRow(
 		ctx,
 		`

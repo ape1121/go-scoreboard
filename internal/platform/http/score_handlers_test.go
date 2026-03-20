@@ -34,7 +34,7 @@ func TestSetScoreHandlerReturnsScore(t *testing.T) {
 func TestSetScoreHandlerReturnsBoardNotFound(t *testing.T) {
 	t.Parallel()
 
-	router := newScoreTestRouter(&scoreRepositoryStub{}, &scoreBoardResolverStub{getErr: board.ErrNotFound}, time.Now().UTC())
+	router := newScoreTestRouter(&scoreRepositoryStub{upsertErr: score.ErrBoardNotFound}, &scoreBoardResolverStub{}, time.Now().UTC())
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/boards/board_test/scores", bytes.NewBufferString(`{"userId":"user_1","score":1500}`))
 
@@ -111,19 +111,27 @@ func newScoreTestRouter(repository *scoreRepositoryStub, boards *scoreBoardResol
 }
 
 type scoreRepositoryStub struct {
-	upserted   score.ScoreEntry
-	topEntries []score.ScoreEntry
-	upsertErr  error
-	topErr     error
+	upsertInput score.UpsertInput
+	upserted    score.ScoreEntry
+	topEntries  []score.ScoreEntry
+	upsertErr   error
+	topErr      error
 }
 
-func (s *scoreRepositoryStub) Upsert(_ context.Context, entry score.ScoreEntry) error {
+func (s *scoreRepositoryStub) Upsert(_ context.Context, input score.UpsertInput) (score.ScoreEntry, error) {
 	if s.upsertErr != nil {
-		return s.upsertErr
+		return score.ScoreEntry{}, s.upsertErr
 	}
 
-	s.upserted = entry
-	return nil
+	s.upsertInput = input
+	s.upserted = score.ScoreEntry{
+		BoardID:    input.BoardID,
+		PeriodID:   11,
+		UserID:     input.UserID,
+		Score:      input.Score,
+		AchievedAt: input.AchievedAt,
+	}
+	return s.upserted, nil
 }
 
 func (s *scoreRepositoryStub) Top(_ context.Context, _ string, _ int64, _ int) ([]score.ScoreEntry, error) {

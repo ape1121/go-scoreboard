@@ -30,6 +30,10 @@ func main() {
 	}
 	defer cleanup()
 
+	if err := application.Scheduler.CatchUp(ctx); err != nil {
+		logger.Fatalf("catch up scheduled resets: %v", err)
+	}
+
 	application.Scheduler.Start(ctx)
 
 	go func() {

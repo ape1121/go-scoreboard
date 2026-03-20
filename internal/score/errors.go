@@ -3,7 +3,8 @@ package score
 import "errors"
 
 var (
-	ErrBoardNotFound = errors.New("board not found")
+	ErrBoardNotFound        = errors.New("board not found")
+	ErrActivePeriodNotFound = errors.New("active period not found")
 )
 
 type ValidationError struct {
