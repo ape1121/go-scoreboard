@@ -9,9 +9,9 @@ import (
 
 const (
 	MinScore        int64 = 0
-	MaxQueryLimit         = 100
-	MinQueryLimit         = 1
-	MaxUserIDLength       = 128
+	MaxQueryLimit   int64 = 100
+	MinQueryLimit   int64 = 1
+	MaxUserIDLength int64 = 128
 )
 
 func ValidateUserID(userID string) error {

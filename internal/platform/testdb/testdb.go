@@ -41,18 +41,18 @@ func New(ctx context.Context) (*TestDB, error) {
 
 	connStr, err := container.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return nil, fmt.Errorf("get connection string: %w", err)
 	}
 
 	if err := runMigrations(connStr); err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 
 	pool, err := pgxpool.New(ctx, connStr)
 	if err != nil {
-		container.Terminate(ctx)
+		_ = container.Terminate(ctx)
 		return nil, fmt.Errorf("create pool: %w", err)
 	}
 
@@ -61,7 +61,7 @@ func New(ctx context.Context) (*TestDB, error) {
 
 func (db *TestDB) Close(ctx context.Context) {
 	db.Pool.Close()
-	db.container.Terminate(ctx)
+	_ = db.container.Terminate(ctx)
 }
 
 func (db *TestDB) Truncate(ctx context.Context) error {
@@ -79,7 +79,7 @@ func runMigrations(connStr string) error {
 	if err != nil {
 		return fmt.Errorf("create migrator: %w", err)
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("apply migrations: %w", err)

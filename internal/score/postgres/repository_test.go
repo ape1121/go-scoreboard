@@ -77,13 +77,6 @@ func TestRepositoryTopUsesRankingQueryAndReturnsEntries(t *testing.T) {
 	}, entries)
 }
 
-type queryerStub struct {
-	querySQL  string
-	queryArgs []any
-	rows      pgx.Rows
-	row       pgx.Row
-	queryErr  error
-}
 
 type storeStub struct {
 	tx        *txStub
