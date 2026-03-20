@@ -77,7 +77,6 @@ func TestRepositoryTopUsesRankingQueryAndReturnsEntries(t *testing.T) {
 	}, entries)
 }
 
-
 type storeStub struct {
 	tx        *txStub
 	querySQL  string
