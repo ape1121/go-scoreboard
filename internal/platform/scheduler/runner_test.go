@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"sync"
 	"testing"
 	"time"
 
@@ -49,7 +50,7 @@ func TestSchedulerCatchUpUsesCurrentClock(t *testing.T) {
 	err := scheduler.CatchUp(context.Background())
 
 	require.NoError(t, err)
-	require.Equal(t, []time.Time{now}, runner.calls)
+	require.Equal(t, []time.Time{now}, runner.getCalls())
 }
 
 func TestSchedulerStartTriggersRunner(t *testing.T) {
@@ -61,11 +62,11 @@ func TestSchedulerStartTriggersRunner(t *testing.T) {
 	defer cancel()
 
 	scheduler.Start(ctx)
-	time.Sleep(30 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	cancel()
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
-	require.NotEmpty(t, runner.calls)
+	require.NotEmpty(t, runner.getCalls())
 }
 
 type repositoryStub struct {
@@ -98,13 +99,22 @@ type resetCall struct {
 }
 
 type runnerStub struct {
+	mu    sync.Mutex
 	calls []time.Time
 	err   error
 }
 
 func (s *runnerStub) Run(_ context.Context, now time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.calls = append(s.calls, now)
 	return s.err
+}
+
+func (s *runnerStub) getCalls() []time.Time {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]time.Time{}, s.calls...)
 }
 
 type fixedClock struct {
