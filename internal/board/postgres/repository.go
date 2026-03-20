@@ -172,6 +172,31 @@ func (r *Repository) GetActivePeriod(ctx context.Context, boardID string) (board
 	return period, nil
 }
 
+func (r *Repository) ResolveActivePeriodID(ctx context.Context, boardID string) (int64, error) {
+	var periodID int64
+
+	err := r.pool.QueryRow(
+		ctx,
+		`
+			SELECT bp.period_id
+			FROM boards b
+			JOIN board_periods bp
+				ON bp.board_id = b.board_id
+				AND bp.ended_at IS NULL
+			WHERE b.board_id = $1
+		`,
+		boardID,
+	).Scan(&periodID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, board.ErrNotFound
+		}
+		return 0, fmt.Errorf("resolve active period: %w", err)
+	}
+
+	return periodID, nil
+}
+
 func scheduleValues(schedule *board.Schedule) (*string, *int64) {
 	if schedule == nil {
 		return nil, nil

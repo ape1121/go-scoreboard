@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ape1121/go-scoreboard/internal/board"
 	"github.com/ape1121/go-scoreboard/internal/platform/clock"
 )
 
@@ -71,10 +70,7 @@ func TestServiceTopReturnsScoresForActivePeriod(t *testing.T) {
 		{BoardID: "board_test", PeriodID: 11, UserID: "user_2", Score: 1400},
 	}
 	repository := &repositoryStub{topEntries: expected}
-	boards := &boardResolverStub{
-		boardEntity: board.Board{ID: "board_test"},
-		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
-	}
+	boards := &boardResolverStub{periodID: 11}
 	service := NewService(repository, boards, fixedClock{now: time.Now().UTC()})
 
 	entries, err := service.Top(context.Background(), "board_test", 10)
@@ -148,26 +144,16 @@ func (s *repositoryStub) Surroundings(_ context.Context, _ string, _ int64, _ st
 }
 
 type boardResolverStub struct {
-	boardEntity board.Board
-	period      board.BoardPeriod
-	getErr      error
-	periodErr   error
+	periodID   int64
+	resolveErr error
 }
 
-func (s *boardResolverStub) GetByID(context.Context, string) (board.Board, error) {
-	if s.getErr != nil {
-		return board.Board{}, s.getErr
+func (s *boardResolverStub) ResolveActivePeriodID(_ context.Context, _ string) (int64, error) {
+	if s.resolveErr != nil {
+		return 0, s.resolveErr
 	}
 
-	return s.boardEntity, nil
-}
-
-func (s *boardResolverStub) GetActivePeriod(context.Context, string) (board.BoardPeriod, error) {
-	if s.periodErr != nil {
-		return board.BoardPeriod{}, s.periodErr
-	}
-
-	return s.period, nil
+	return s.periodID, nil
 }
 
 type topCall struct {

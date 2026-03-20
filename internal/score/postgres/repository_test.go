@@ -40,7 +40,7 @@ func TestRepositoryUpsertUsesOverwriteQuery(t *testing.T) {
 	require.Contains(t, db.tx.querySQL[1], "SELECT period_id FROM board_periods WHERE board_id = $1 AND ended_at IS NULL LIMIT 1")
 	require.Contains(t, db.tx.execSQL, "ON CONFLICT (board_id, board_period_id, user_id)")
 	require.Contains(t, db.tx.execSQL, "score = EXCLUDED.score")
-	require.Contains(t, db.tx.execSQL, "achieved_at = EXCLUDED.achieved_at")
+	require.Contains(t, db.tx.execSQL, "WHEN board_scores.score <> EXCLUDED.score THEN EXCLUDED.achieved_at ELSE board_scores.achieved_at")
 	require.Equal(t, []any{"board_test", int64(11), "user_1", int64(1500), now}, db.tx.execArgs)
 	require.Equal(t, score.ScoreEntry{
 		BoardID:    "board_test",

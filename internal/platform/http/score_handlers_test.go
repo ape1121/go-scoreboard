@@ -11,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ape1121/go-scoreboard/internal/board"
 	"github.com/ape1121/go-scoreboard/internal/score"
 )
 
@@ -19,8 +18,7 @@ func TestSetScoreHandlerReturnsScore(t *testing.T) {
 	t.Parallel()
 
 	router := newScoreTestRouter(&scoreRepositoryStub{}, &scoreBoardResolverStub{
-		boardEntity: board.Board{ID: "board_test"},
-		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+		periodID: 11,
 	}, time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC))
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/boards/board_test/scores", bytes.NewBufferString(`{"userId":"user_1","score":1500}`))
@@ -53,8 +51,7 @@ func TestTopScoresHandlerReturnsRankedEntries(t *testing.T) {
 			{BoardID: "board_test", PeriodID: 11, UserID: "user_1", Score: 1500},
 		},
 	}, &scoreBoardResolverStub{
-		boardEntity: board.Board{ID: "board_test"},
-		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+		periodID: 11,
 	}, time.Now().UTC())
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/boards/board_test/scores?n=2", nil)
@@ -72,8 +69,7 @@ func TestTopScoresHandlerReturnsBadRequestForInvalidLimit(t *testing.T) {
 	t.Parallel()
 
 	router := newScoreTestRouter(&scoreRepositoryStub{}, &scoreBoardResolverStub{
-		boardEntity: board.Board{ID: "board_test"},
-		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+		periodID: 11,
 	}, time.Now().UTC())
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/boards/board_test/scores?n=0", nil)
@@ -81,15 +77,14 @@ func TestTopScoresHandlerReturnsBadRequestForInvalidLimit(t *testing.T) {
 	router.ServeHTTP(recorder, request)
 
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
-	require.JSONEq(t, `{"error":"limit must be at least 1"}`, recorder.Body.String())
+	require.JSONEq(t, `{"error":"Invalid value for n"}`, recorder.Body.String())
 }
 
 func TestTopScoresHandlerReturnsEmptyArrayWhenNoScoresExist(t *testing.T) {
 	t.Parallel()
 
 	router := newScoreTestRouter(&scoreRepositoryStub{}, &scoreBoardResolverStub{
-		boardEntity: board.Board{ID: "board_test"},
-		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+		periodID: 11,
 	}, time.Now().UTC())
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/boards/board_test/scores", nil)
@@ -120,8 +115,7 @@ func TestSurroundingsHandlerReturnsRankedEntries(t *testing.T) {
 			{ScoreEntry: score.ScoreEntry{BoardID: "board_test", PeriodID: 11, UserID: "carol", Score: 1000}, Rank: 3},
 		},
 	}, &scoreBoardResolverStub{
-		boardEntity: board.Board{ID: "board_test"},
-		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+		periodID: 11,
 	}, time.Now().UTC())
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/boards/board_test/scores/bob/surroundings?n=1", nil)
@@ -142,8 +136,7 @@ func TestSurroundingsHandlerReturnsNotFoundForMissingUser(t *testing.T) {
 	router := newScoreTestRouter(&scoreRepositoryStub{
 		surroundingsErr: score.ErrScoreNotFound,
 	}, &scoreBoardResolverStub{
-		boardEntity: board.Board{ID: "board_test"},
-		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+		periodID: 11,
 	}, time.Now().UTC())
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/boards/board_test/scores/missing_user/surroundings", nil)
@@ -158,8 +151,7 @@ func TestSeedHandlerCreatesScores(t *testing.T) {
 	t.Parallel()
 
 	router := newScoreTestRouter(&scoreRepositoryStub{}, &scoreBoardResolverStub{
-		boardEntity: board.Board{ID: "board_test"},
-		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+		periodID: 11,
 	}, time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC))
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/boards/board_test/scores/seed", bytes.NewBufferString(`{"count":5,"maxScore":1000}`))
@@ -174,8 +166,7 @@ func TestSeedHandlerUsesDefaultsForEmptyBody(t *testing.T) {
 	t.Parallel()
 
 	router := newScoreTestRouter(&scoreRepositoryStub{}, &scoreBoardResolverStub{
-		boardEntity: board.Board{ID: "board_test"},
-		period:      board.BoardPeriod{ID: 11, BoardID: "board_test"},
+		periodID: 11,
 	}, time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC))
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/boards/board_test/scores/seed", bytes.NewBufferString(`{}`))
@@ -232,26 +223,16 @@ func (s *scoreRepositoryStub) Surroundings(_ context.Context, _ string, _ int64,
 }
 
 type scoreBoardResolverStub struct {
-	boardEntity board.Board
-	period      board.BoardPeriod
-	getErr      error
-	periodErr   error
+	periodID   int64
+	resolveErr error
 }
 
-func (s *scoreBoardResolverStub) GetByID(context.Context, string) (board.Board, error) {
-	if s.getErr != nil {
-		return board.Board{}, s.getErr
+func (s *scoreBoardResolverStub) ResolveActivePeriodID(_ context.Context, _ string) (int64, error) {
+	if s.resolveErr != nil {
+		return 0, s.resolveErr
 	}
 
-	return s.boardEntity, nil
-}
-
-func (s *scoreBoardResolverStub) GetActivePeriod(context.Context, string) (board.BoardPeriod, error) {
-	if s.periodErr != nil {
-		return board.BoardPeriod{}, s.periodErr
-	}
-
-	return s.period, nil
+	return s.periodID, nil
 }
 
 type fixedScoreClock struct {

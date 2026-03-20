@@ -7,6 +7,7 @@ import (
 
 	"github.com/ape1121/go-scoreboard/internal/board"
 	"github.com/ape1121/go-scoreboard/internal/platform/clock"
+	"github.com/ape1121/go-scoreboard/internal/validate"
 )
 
 type Repository interface {
@@ -17,8 +18,7 @@ type Repository interface {
 }
 
 type BoardResolver interface {
-	GetByID(context.Context, string) (board.Board, error)
-	GetActivePeriod(context.Context, string) (board.BoardPeriod, error)
+	ResolveActivePeriodID(ctx context.Context, boardID string) (int64, error)
 }
 
 type Service struct {
@@ -39,7 +39,7 @@ func (s *Service) Set(ctx context.Context, input SetInput) (ScoreEntry, error) {
 	boardID := strings.TrimSpace(input.BoardID)
 	userID := strings.TrimSpace(input.UserID)
 
-	if err := validateBoardID(boardID); err != nil {
+	if err := NewValidationError(validate.BoardID(boardID)); err != nil {
 		return ScoreEntry{}, err
 	}
 	if err := NewValidationError(ValidateWrite(userID, input.Score)); err != nil {
@@ -62,30 +62,26 @@ func (s *Service) Set(ctx context.Context, input SetInput) (ScoreEntry, error) {
 func (s *Service) Top(ctx context.Context, boardID string, limit int) ([]ScoreEntry, error) {
 	trimmedBoardID := strings.TrimSpace(boardID)
 
-	if err := validateBoardID(trimmedBoardID); err != nil {
+	if err := NewValidationError(validate.BoardID(trimmedBoardID)); err != nil {
 		return nil, err
 	}
 	if err := NewValidationError(ValidateLimit(limit)); err != nil {
 		return nil, err
 	}
 
-	if _, err := s.boards.GetByID(ctx, trimmedBoardID); err != nil {
-		return nil, mapBoardError(err)
-	}
-
-	period, err := s.boards.GetActivePeriod(ctx, trimmedBoardID)
+	periodID, err := s.boards.ResolveActivePeriodID(ctx, trimmedBoardID)
 	if err != nil {
 		return nil, mapBoardError(err)
 	}
 
-	return s.repository.Top(ctx, trimmedBoardID, period.ID, limit)
+	return s.repository.Top(ctx, trimmedBoardID, periodID, limit)
 }
 
 func (s *Service) Surroundings(ctx context.Context, boardID string, userID string, n int) ([]RankedEntry, error) {
 	trimmedBoardID := strings.TrimSpace(boardID)
 	trimmedUserID := strings.TrimSpace(userID)
 
-	if err := validateBoardID(trimmedBoardID); err != nil {
+	if err := NewValidationError(validate.BoardID(trimmedBoardID)); err != nil {
 		return nil, err
 	}
 	if err := NewValidationError(ValidateUserID(trimmedUserID)); err != nil {
@@ -95,16 +91,12 @@ func (s *Service) Surroundings(ctx context.Context, boardID string, userID strin
 		return nil, err
 	}
 
-	if _, err := s.boards.GetByID(ctx, trimmedBoardID); err != nil {
-		return nil, mapBoardError(err)
-	}
-
-	period, err := s.boards.GetActivePeriod(ctx, trimmedBoardID)
+	periodID, err := s.boards.ResolveActivePeriodID(ctx, trimmedBoardID)
 	if err != nil {
 		return nil, mapBoardError(err)
 	}
 
-	return s.repository.Surroundings(ctx, trimmedBoardID, period.ID, trimmedUserID, n)
+	return s.repository.Surroundings(ctx, trimmedBoardID, periodID, trimmedUserID, n)
 }
 
 func mapBoardError(err error) error {
@@ -114,18 +106,4 @@ func mapBoardError(err error) error {
 	default:
 		return err
 	}
-}
-
-func validateBoardID(boardID string) error {
-	if strings.TrimSpace(boardID) == "" {
-		return ValidationError{err: errorString("board ID must not be empty")}
-	}
-
-	return nil
-}
-
-type errorString string
-
-func (e errorString) Error() string {
-	return string(e)
 }

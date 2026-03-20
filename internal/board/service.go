@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ape1121/go-scoreboard/internal/platform/clock"
+	"github.com/ape1121/go-scoreboard/internal/validate"
 )
 
 type Repository interface {
@@ -65,7 +66,7 @@ func (s *Service) List(ctx context.Context, limit, offset int) ([]Board, error) 
 }
 
 func (s *Service) Get(ctx context.Context, boardID string) (Details, error) {
-	if err := validateBoardID(boardID); err != nil {
+	if err := NewValidationError(validate.BoardID(boardID)); err != nil {
 		return Details{}, err
 	}
 
@@ -101,18 +102,4 @@ func cloneSchedule(schedule *Schedule) *Schedule {
 
 func timePointer(value time.Time) *time.Time {
 	return &value
-}
-
-func validateBoardID(boardID string) error {
-	if strings.TrimSpace(boardID) == "" {
-		return ValidationError{err: errorString("board ID must not be empty")}
-	}
-
-	return nil
-}
-
-type errorString string
-
-func (e errorString) Error() string {
-	return string(e)
 }

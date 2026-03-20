@@ -127,8 +127,8 @@ func scoreLimit(r *stdhttp.Request) (int, error) {
 	}
 
 	limit, err := strconv.Atoi(raw)
-	if err != nil {
-		return 0, err
+	if err != nil || limit < score.MinQueryLimit || limit > score.MaxQueryLimit {
+		return 0, fmt.Errorf("invalid value for n")
 	}
 
 	return limit, nil
