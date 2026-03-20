@@ -11,7 +11,7 @@ services:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/scoreboard?sslmode=disable
       SCHEDULER_POLL_INTERVAL: 10s
     ports:
-      - "8080:8080"
+      - "9080:8080"
 
   postgres:
     image: postgres:17-alpine
@@ -25,7 +25,7 @@ services:
       timeout: 5s
       retries: 10
     ports:
-      - "5432:5432"
+      - "9432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
 

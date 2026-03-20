@@ -51,7 +51,7 @@ func (r *Repository) ResetDueBoard(ctx context.Context, boardID string, now time
 	if err != nil {
 		return false, fmt.Errorf("begin reset transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var (
 		intervalSeconds int64

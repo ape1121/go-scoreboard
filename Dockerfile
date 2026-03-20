@@ -2,12 +2,14 @@ FROM golang:1.26.1-alpine AS build
 
 WORKDIR /src
 
+RUN apk add --no-cache build-base
+
 COPY go.mod ./
 COPY go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/api ./cmd/api
+RUN CGO_ENABLED=1 GOOS=linux go build -o /out/api ./cmd/api
 
 FROM alpine:3.22
 

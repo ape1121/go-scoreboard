@@ -12,11 +12,6 @@ import (
 	"github.com/ape1121/go-scoreboard/internal/score"
 )
 
-type queryer interface {
-	Query(context.Context, string, ...any) (pgx.Rows, error)
-	QueryRow(context.Context, string, ...any) pgx.Row
-}
-
 type tx interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	QueryRow(context.Context, string, ...any) pgx.Row
@@ -59,7 +54,7 @@ func (r *Repository) Upsert(ctx context.Context, input score.UpsertInput) (score
 	if err != nil {
 		return score.ScoreEntry{}, fmt.Errorf("begin score upsert transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var boardID string
 	if err := tx.QueryRow(

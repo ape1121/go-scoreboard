@@ -25,7 +25,7 @@ func (r *Repository) Create(ctx context.Context, entity board.Board, period boar
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	scheduleType, scheduleIntervalSeconds := scheduleValues(entity.Schedule)
 	if _, err := tx.Exec(
