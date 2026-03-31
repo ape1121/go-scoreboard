@@ -201,59 +201,23 @@ func (r *Repository) Surroundings(ctx context.Context, boardID string, periodID 
 	rows, err := r.db.Query(
 		ctx,
 		`
-			WITH target AS (
-				SELECT score, achieved_at, user_id
+			WITH scored AS (
+				SELECT 
+					board_id, board_period_id, user_id, score, achieved_at,
+					ROW_NUMBER() OVER (
+						ORDER BY score DESC, achieved_at ASC, user_id ASC
+					) AS rank
 				FROM board_scores
-				WHERE board_id = $1 AND board_period_id = $2 AND user_id = $3
+				WHERE board_id = $1 AND board_period_id = $2
 			),
-			target_rank AS (
-				SELECT COUNT(*) + 1 AS rank
-				FROM board_scores s, target t
-				WHERE s.board_id = $1 AND s.board_period_id = $2
-				AND (
-					s.score > t.score
-					OR (s.score = t.score AND s.achieved_at < t.achieved_at)
-					OR (s.score = t.score AND s.achieved_at = t.achieved_at AND s.user_id < t.user_id)
-				)
-			),
-			above AS (
-				SELECT s.board_id, s.board_period_id, s.user_id, s.score, s.achieved_at
-				FROM board_scores s, target t
-				WHERE s.board_id = $1 AND s.board_period_id = $2
-				AND (
-					s.score > t.score
-					OR (s.score = t.score AND s.achieved_at < t.achieved_at)
-					OR (s.score = t.score AND s.achieved_at = t.achieved_at AND s.user_id < t.user_id)
-				)
-				ORDER BY s.score ASC, s.achieved_at DESC, s.user_id DESC
-				LIMIT $4
-			),
-			below AS (
-				SELECT s.board_id, s.board_period_id, s.user_id, s.score, s.achieved_at
-				FROM board_scores s, target t
-				WHERE s.board_id = $1 AND s.board_period_id = $2
-				AND (
-					s.score < t.score
-					OR (s.score = t.score AND s.achieved_at > t.achieved_at)
-					OR (s.score = t.score AND s.achieved_at = t.achieved_at AND s.user_id > t.user_id)
-				)
-				ORDER BY s.score DESC, s.achieved_at ASC, s.user_id ASC
-				LIMIT $4
-			),
-			combined AS (
-				SELECT a.board_id, a.board_period_id, a.user_id, a.score, a.achieved_at FROM above a
-				UNION ALL
-				SELECT $1, $2, t.user_id, t.score, t.achieved_at FROM target t
-				UNION ALL
-				SELECT b.board_id, b.board_period_id, b.user_id, b.score, b.achieved_at FROM below b
+			target AS (
+				SELECT * FROM scored WHERE user_id = $3
 			)
-			SELECT c.board_id, c.board_period_id, c.user_id, c.score, c.achieved_at,
-				ROW_NUMBER() OVER (ORDER BY c.score DESC, c.achieved_at ASC, c.user_id ASC)
-					+ (SELECT rank FROM target_rank) - 1
-					- (SELECT COUNT(*) FROM above)
-				AS rank
-			FROM combined c
-			ORDER BY c.score DESC, c.achieved_at ASC, c.user_id ASC
+			SELECT s.board_id, s.board_period_id, s.user_id, s.score, s.achieved_at, s.rank
+			FROM scored s
+			CROSS JOIN target t
+			WHERE s.rank BETWEEN t.rank - $4 AND t.rank + $4
+			ORDER BY s.score DESC, s.achieved_at ASC, s.user_id ASC
 		`,
 		boardID,
 		periodID,
